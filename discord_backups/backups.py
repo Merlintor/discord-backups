@@ -142,8 +142,22 @@ class BackupLoader:
     def __init__(self, bot):
         self.bot = bot
 
-    async def load_backup(self, data, guild):
-        pass
+    async def _clear_guild(self):
+        for role in self.guild.roles:
+            if role.managed or role.is_default():
+                continue
+
+            await role.delete()
+
+        for channel in self.guild.channels:
+            await channel.delete()
+
+    async def load_backup(self, data, guild, hard=False, **options):
+        self.guild = guild
+        self.data = data
+
+        if hard:
+            await self._clear_guild()
 
 
 class Backup(BackupLoader, BackupSaver):
@@ -166,11 +180,11 @@ class Backup(BackupLoader, BackupSaver):
     @classmethod
     async def from_guild(cls, bot, guild, creator=None):
         instance = cls(bot, guild=guild, creator=creator)
-        await instance._save_guild(guild, creator)
+        await instance.save_guild(guild, creator)
         return instance
 
     async def load(self, guild):
-        await self._load_backup(self.data, self.guild)
+        await self.load_backup(self.data, self.guild)
 
     @property
     def json(self):
