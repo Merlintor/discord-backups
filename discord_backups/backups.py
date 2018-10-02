@@ -1,12 +1,7 @@
 import discord
 
-
 def overwrites_to_json(overwrites):
-    pass
-
-
-def overwrites_from_json(json):
-    pass
+    return {overwrite[0].id: overwrite[1]._values for overwrite in overwrites}
 
 
 class BackupSaver:
@@ -80,11 +75,12 @@ class BackupSaver:
 
     async def _save_roles(self):
         for role in self.guild.roles:
-            if role.managed or role.is_default():
+            if role.managed:
                 continue
 
             role_data = {
                 "id": role.id,
+                "default": role.is_default(),
                 "name": role.name,
                 "permissions": role.permissions.value,
                 "color": role.color.value,
@@ -149,6 +145,21 @@ class BackupLoader:
         self.bot = bot
         self.id_translator = {}
 
+    def overwrites_from_json(self, json):
+        overwrites = {}
+        for union_id, overwrite in json.items():
+            union = self.guild.get_member(union_id)
+            if union is None:
+                roles = list(filter(lambda r: r.id == self.id_translator.get(union_id), self.guild.roles))
+                if len(roles) == 0:
+                    continue
+
+                union = roles[0]
+
+            overwrites[union] = discord.PermissionOverwrite(**overwrite)
+
+        return overwrites
+
     async def _clear_guild(self):
         for role in self.guild.roles:
             if role.managed or role.is_default():
@@ -162,6 +173,12 @@ class BackupLoader:
     async def _load_roles(self):
         positioner = {}
         for role in self.data["roles"]:
+            if role["default"]:
+                await self.guild.default_role.edit(
+                    permissions=discord.Permissions(role["permissions"])
+                )
+                self.id_translator[role["id"]] = self.guild.default_role.id
+
             matches = list(filter(lambda r:
                                   r.name == role["name"] and
                                   r.color.value == role["color"] and
@@ -169,12 +186,12 @@ class BackupLoader:
 
                                   self.guild.roles))
 
-            if len(matches) >= 0:
+            if len(matches) > 0:
                 positioner[matches[0]] = role["position"]
                 self.id_translator[role["id"]] = matches[0].id
 
             else:
-                created = self.guild.create_role(
+                created = await self.guild.create_role(
                     name=role["name"],
                     hoist=role["hoist"],
                     mentionable=role["mentionable"],
@@ -189,7 +206,10 @@ class BackupLoader:
                 await role.delete()
 
         for role, position in positioner.items():
-            await role.edit(position=position)
+            try:
+                await role.edit(position=position)
+            except Exception as e:
+                print(e)
 
     async def _load_channels(self):
         await self._load_categories()
@@ -201,18 +221,18 @@ class BackupLoader:
         for category in self.data["categories"]:
             matches = list(filter(lambda c:
                                   c.name == category["name"] and
-                                  overwrites_to_json(c.overwrites) == category["overwrites"],
+                                  len(overwrites_to_json(c.overwrites)) == len(category["overwrites"]),
 
                                   self.guild.categories))
 
-            if len(matches) >= 0:
+            if len(matches) > 0:
                 positioner[matches[0]] = category["position"]
                 self.id_translator[category["id"]] = matches[0].id
 
             else:
-                created = self.guild.create_category_channel(
+                created = await self.guild.create_category_channel(
                     name=category["name"],
-                    overwrites=overwrites_from_json(category["overwrites"])
+                    overwrites=self.overwrites_from_json(category["overwrites"])
                 )
                 self.id_translator[category["id"]] = created.id
                 positioner[created] = category["position"]
@@ -230,12 +250,12 @@ class BackupLoader:
             matches = list(filter(lambda c:
                                   c.name == channel["name"] and
                                   c.topic == channel["topic"] and
-                                  overwrites_to_json(c.overwrites) == channel["overwrites"] and
+                                  len(overwrites_to_json(c.overwrites)) == len(channel["overwrites"]) and
                                   c.is_nsfw() == channel["nsfw"],
 
                                   self.guild.text_channels))
 
-            if len(matches) >= 0:
+            if len(matches) > 0:
                 positioner[matches[0]] = channel["position"]
                 self.id_translator[channel["id"]] = matches[0].id
 
@@ -244,9 +264,9 @@ class BackupLoader:
                 )
 
             else:
-                created = self.guild.create_text_channel(
+                created = await self.guild.create_text_channel(
                     name=channel["name"],
-                    overwrites=overwrites_from_json(channel["overwrites"]),
+                    overwrites=self.overwrites_from_json(channel["overwrites"]),
                     category=discord.Object(self.id_translator.get(channel["category"]))
                 )
 
@@ -277,14 +297,12 @@ class BackupLoader:
             await self._clear_guild()
 
         await self._load_roles()
-        await self._load_categories()
-        await self._load_text_channels()
-        await self._load_voice_channels()
+        await self._load_channels()
 
 
 class Backup(BackupLoader, BackupSaver):
     def __init__(self, bot, guild=None, creator=None, data=None):
-        if data is None or (creator is None and guild is None):
+        if data is None and (creator is None or guild is None):
             raise ValueError
 
         self.bot = bot
@@ -306,7 +324,7 @@ class Backup(BackupLoader, BackupSaver):
         return instance
 
     async def load(self, guild):
-        await self.load_backup(self.data, self.guild)
+        await self.load_backup(self.data, guild)
 
     @property
     def json(self):
