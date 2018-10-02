@@ -9,7 +9,7 @@ with open('LICENSE') as f:
 
 setup(
     name='discord_backups',
-    version='0.1.0',
+    version='0.1.1',
     description='Create backups of your discord server',
     long_description=readme,
     author='Merlin Fuchs (Merlintor)',

@@ -147,6 +147,7 @@ class BackupSaver:
 class BackupLoader:
     def __init__(self, bot):
         self.bot = bot
+        self.id_translator = {}
 
     async def _clear_guild(self):
         for role in self.guild.roles:
@@ -239,14 +240,14 @@ class BackupLoader:
                 self.id_translator[channel["id"]] = matches[0].id
 
                 await matches[0].edit(
-                    category=None # ------------------------------------------
+                    category=discord.Object(self.id_translator.get(channel["category"]))
                 )
 
             else:
                 created = self.guild.create_text_channel(
                     name=channel["name"],
                     overwrites=overwrites_from_json(channel["overwrites"]),
-                    category=None # ------------------------------------------
+                    category=discord.Object(self.id_translator.get(channel["category"]))
                 )
 
                 await created.edit(
@@ -274,6 +275,11 @@ class BackupLoader:
 
         if hard:
             await self._clear_guild()
+
+        await self._load_roles()
+        await self._load_categories()
+        await self._load_text_channels()
+        await self._load_voice_channels()
 
 
 class Backup(BackupLoader, BackupSaver):
