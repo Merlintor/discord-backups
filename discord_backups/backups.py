@@ -74,7 +74,9 @@ class BackupSaver:
         self.data["categories"] = sorted(self.data["categories"], key=lambda c: c["position"])
 
     async def _save_roles(self):
-        for role in self.guild.roles:
+        position = 0
+        for role in sorted(self.guild.roles, key=lambda r: r.position):
+            print(role, role.position)
             if role.managed:
                 continue
 
@@ -85,11 +87,12 @@ class BackupSaver:
                 "permissions": role.permissions.value,
                 "color": role.color.value,
                 "hoist": role.hoist,
-                "position": role.position,
+                "position": position,
                 "mentionable": role.mentionable
             }
 
             self.data["roles"].append(role_data)
+            position += 1
 
     async def _save_members(self):
         for member in self.guild.members:
@@ -206,6 +209,7 @@ class BackupLoader:
                 await role.delete()
 
         for role, position in positioner.items():
+            print(role.name, position)
             try:
                 await role.edit(position=position)
             except Exception as e:
@@ -218,6 +222,7 @@ class BackupLoader:
 
     async def _load_categories(self):
         positioner = {}
+        to_create = []
         for category in self.data["categories"]:
             matches = list(filter(lambda c:
                                   c.name == category["name"] and
@@ -230,22 +235,26 @@ class BackupLoader:
                 self.id_translator[category["id"]] = matches[0].id
 
             else:
-                created = await self.guild.create_category_channel(
-                    name=category["name"],
-                    overwrites=self.overwrites_from_json(category["overwrites"])
-                )
-                self.id_translator[category["id"]] = created.id
-                positioner[created] = category["position"]
+                to_create.append(category)
 
         for category in self.guild.categories:
             if category not in positioner.keys():
                 await category.delete()
+
+        for category in to_create:
+            created = await self.guild.create_category_channel(
+                name=category["name"],
+                overwrites=self.overwrites_from_json(category["overwrites"])
+            )
+            self.id_translator[category["id"]] = created.id
+            positioner[created] = category["position"]
 
         for category, position in positioner.items():
             await category.edit(position=position)
 
     async def _load_text_channels(self):
         positioner = {}
+        to_create = []
         for channel in self.data["text_channels"]:
             matches = list(filter(lambda c:
                                   c.name == channel["name"] and
@@ -264,29 +273,74 @@ class BackupLoader:
                 )
 
             else:
-                created = await self.guild.create_text_channel(
-                    name=channel["name"],
-                    overwrites=self.overwrites_from_json(channel["overwrites"]),
-                    category=discord.Object(self.id_translator.get(channel["category"]))
-                )
-
-                await created.edit(
-                    topic=channel["topic"],
-                    nsfw=channel["nsfw"],
-                )
-
-                positioner[created] = channel["position"]
-                self.id_translator[channel["id"]] = created.id
+                to_create.append(channel)
 
         for channel in self.guild.text_channels:
             if channel not in positioner.keys():
                 await channel.delete()
 
+        for channel in to_create:
+            created = await self.guild.create_text_channel(
+                name=channel["name"],
+                overwrites=self.overwrites_from_json(channel["overwrites"]),
+                category=discord.Object(self.id_translator.get(channel["category"]))
+            )
+
+            await created.edit(
+                topic=channel["topic"],
+                nsfw=channel["nsfw"],
+            )
+
+            positioner[created] = channel["position"]
+            self.id_translator[channel["id"]] = created.id
+
         for channel, position in positioner.items():
             await channel.edit(position=position)
 
     async def _load_voice_channels(self):
-        pass
+        positioner = {}
+        to_create = []
+        for channel in self.data["voice_channels"]:
+            matches = list(filter(lambda c:
+                                  c.name == channel["name"] and
+                                  c.bitrate == channel["bitrate"] and
+                                  c.user_limit == channel["user_limit"] and
+                                  len(overwrites_to_json(c.overwrites)) == len(channel["overwrites"]),
+
+                                  self.guild.voice_channels))
+
+            if len(matches) > 0:
+                positioner[matches[0]] = channel["position"]
+                self.id_translator[channel["id"]] = matches[0].id
+
+                await matches[0].edit(
+                    category=discord.Object(self.id_translator.get(channel["category"]))
+                )
+
+            else:
+                to_create.append(channel)
+
+        for channel in self.guild.voice_channels:
+            if channel not in positioner.keys():
+                await channel.delete()
+
+        for channel in to_create:
+            created = await self.guild.create_voice_channel(
+                name=channel["name"],
+                overwrites=self.overwrites_from_json(channel["overwrites"]),
+                category=discord.Object(self.id_translator.get(channel["category"]))
+            )
+
+            await created.edit(
+                bitrate=channel["bitrate"],
+                user_limit = channel["user_limit"]
+            )
+
+            positioner[created] = channel["position"]
+            self.id_translator[channel["id"]] = created.id
+
+        for channel, position in positioner.items():
+            await channel.edit(position=position)
 
     async def load_backup(self, data, guild, hard=False, **options):
         self.guild = guild
