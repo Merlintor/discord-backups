@@ -1,6 +1,14 @@
 import discord
 
 
+def overwrites_to_json(overwrites):
+    pass
+
+
+def overwrites_from_json(json):
+    pass
+
+
 class BackupSaver:
     def __init__(self, bot):
         self.bot = bot
@@ -14,9 +22,7 @@ class BackupSaver:
                 "position": channel.position,
                 "category": None if channel.category is None else channel.category.id,
                 "id": channel.id,
-                "overwrites": [{
-                    str(union.id): overwrite._values
-                } for union, overwrite in channel.overwrites]
+                "overwrites": overwrites_to_json(channel.overwrites)
             }
 
             if isinstance(channel, discord.TextChannel):
@@ -152,9 +158,119 @@ class BackupLoader:
         for channel in self.guild.channels:
             await channel.delete()
 
+    async def _load_roles(self):
+        positioner = {}
+        for role in self.data["roles"]:
+            matches = list(filter(lambda r:
+                                  r.name == role["name"] and
+                                  r.color.value == role["color"] and
+                                  r.permissions.value == role["permissions"],
+
+                                  self.guild.roles))
+
+            if len(matches) >= 0:
+                positioner[matches[0]] = role["position"]
+                self.id_translator[role["id"]] = matches[0].id
+
+            else:
+                created = self.guild.create_role(
+                    name=role["name"],
+                    hoist=role["hoist"],
+                    mentionable=role["mentionable"],
+                    color=discord.Color(role["color"]),
+                    permissions=discord.Permissions(role["permissions"])
+                )
+                self.id_translator[role["id"]] = created.id
+                positioner[created] = role["position"]
+
+        for role in self.guild.roles:
+            if not role.managed and not role.is_default() and role not in positioner.keys():
+                await role.delete()
+
+        for role, position in positioner.items():
+            await role.edit(position=position)
+
+    async def _load_channels(self):
+        await self._load_categories()
+        await self._load_text_channels()
+        await self._load_voice_channels()
+
+    async def _load_categories(self):
+        positioner = {}
+        for category in self.data["categories"]:
+            matches = list(filter(lambda c:
+                                  c.name == category["name"] and
+                                  overwrites_to_json(c.overwrites) == category["overwrites"],
+
+                                  self.guild.categories))
+
+            if len(matches) >= 0:
+                positioner[matches[0]] = category["position"]
+                self.id_translator[category["id"]] = matches[0].id
+
+            else:
+                created = self.guild.create_category_channel(
+                    name=category["name"],
+                    overwrites=overwrites_from_json(category["overwrites"])
+                )
+                self.id_translator[category["id"]] = created.id
+                positioner[created] = category["position"]
+
+        for category in self.guild.categories:
+            if category not in positioner.keys():
+                await category.delete()
+
+        for category, position in positioner.items():
+            await category.edit(position=position)
+
+    async def _load_text_channels(self):
+        positioner = {}
+        for channel in self.data["text_channels"]:
+            matches = list(filter(lambda c:
+                                  c.name == channel["name"] and
+                                  c.topic == channel["topic"] and
+                                  overwrites_to_json(c.overwrites) == channel["overwrites"] and
+                                  c.is_nsfw() == channel["nsfw"],
+
+                                  self.guild.text_channels))
+
+            if len(matches) >= 0:
+                positioner[matches[0]] = channel["position"]
+                self.id_translator[channel["id"]] = matches[0].id
+
+                await matches[0].edit(
+                    category=None # ------------------------------------------
+                )
+
+            else:
+                created = self.guild.create_text_channel(
+                    name=channel["name"],
+                    overwrites=overwrites_from_json(channel["overwrites"]),
+                    category=None # ------------------------------------------
+                )
+
+                await created.edit(
+                    topic=channel["topic"],
+                    nsfw=channel["nsfw"],
+                )
+
+                positioner[created] = channel["position"]
+                self.id_translator[channel["id"]] = created.id
+
+        for channel in self.guild.text_channels:
+            if channel not in positioner.keys():
+                await channel.delete()
+
+        for channel, position in positioner.items():
+            await channel.edit(position=position)
+
+    async def _load_voice_channels(self):
+        pass
+
     async def load_backup(self, data, guild, hard=False, **options):
         self.guild = guild
         self.data = data
+        self.id_translator = {}
 
         if hard:
             await self._clear_guild()
