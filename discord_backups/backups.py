@@ -1,126 +1,109 @@
 import discord
-
-def overwrites_to_json(overwrites):
-    return {overwrite[0].id: overwrite[1]._values for overwrite in overwrites}
+import aiohttp
 
 
-class BackupSaver:
-    def __init__(self, bot):
-        self.bot = bot
+class BackupSaver():
+    def __init__(self, guild):
+        self.guild = guild
         self.data = {}
-        self.guild = None
+
+    def _overwrites_to_json(self, overwrites):
+        return {overwrite[0].id: overwrite[1]._values for overwrite in overwrites}
 
     async def _save_channels(self):
-        for channel in self.guild.channels:
-            channel_data = {
-                "name": channel.name,
-                "position": channel.position,
-                "category": None if channel.category is None else channel.category.id,
-                "id": channel.id,
-                "overwrites": overwrites_to_json(channel.overwrites)
-            }
+        for category in self.guild.categories:
+            self.data["categories"].append({
+                "name": category.name,
+                "position": category.position,
+                "category": None if category.category is None else category.category.id,
+                "id": category.id,
+                "overwrites": self._overwrites_to_json(category.overwrites)
+            })
 
-            if isinstance(channel, discord.TextChannel):
-                channel_data.update({
-                    "type": "text",
-                    "topic": channel.topic,
-                    # "slowmode_delay": channel.slowmode_delay,
-                    "nsfw": channel.is_nsfw(),
-                    "messages": [{
-                        "id": message.id,
-                        "system_content": message.system_content,
-                        "content": message.clean_content,
-                        "author": message.author.id,
-                        "pinned": message.pinned,
-                        "attachments": [attach.url for attach in message.attachments],
-                        "embed": [embed.to_dict() for embed in message.embeds],
-                        "reactions": [
-                            str(reaction.emoji.name)
-                            if isinstance(reaction.emoji, discord.Emoji) else str(reaction.emoji)
-                            for reaction in message.reactions
-                        ],
+        for tchannel in self.guild.text_channels:
+            self.data["text_channels"].append({
+                "name": tchannel.name,
+                "position": tchannel.position,
+                "category": None if tchannel.category is None else tchannel.category.id,
+                "id": tchannel.id,
+                "overwrites": self._overwrites_to_json(tchannel.overwrites),
+                "topic": tchannel.topic,
+                "slowmode_delay": tchannel.slowmode_delay,
+                "nsfw": tchannel.is_nsfw(),
+                "messages": [{
+                    "id": message.id,
+                    "content": message.system_content,
+                    "author": message.author.id,
+                    "pinned": message.pinned,
+                    "attachments": [attach.url for attach in message.attachments],
+                    "embed": [embed.to_dict() for embed in message.embeds],
+                    "reactions": [
+                        str(reaction.emoji.name)
+                        if isinstance(reaction.emoji, discord.Emoji) else str(reaction.emoji)
+                        for reaction in message.reactions
+                    ],
 
-                    } async for message in channel.history(limit=100, reverse=True)],
+                } async for message in tchannel.history(limit=100, reverse=True)],
 
-                    "webhooks": [{
-                        "channel": webhook.channel.id,
-                        "name": webhook.name,
-                        "avatar": webhook.avatar_url,
-                        "url": webhook.url
+                "webhooks": [{
+                    "channel": webhook.channel.id,
+                    "name": webhook.name,
+                    "avatar": webhook.avatar_url,
+                    "url": webhook.url
 
-                    } for webhook in await channel.webhooks()]
-                })
+                } for webhook in await tchannel.webhooks()]
+            })
 
-                self.data["text_channels"].append(channel_data)
-
-            elif isinstance(channel, discord.VoiceChannel):
-                channel_data.update({
-                    "type": "voice",
-                    "bitrate": channel.bitrate,
-                    "user_limit": channel.user_limit,
-                })
-
-                self.data["voice_channels"].append(channel_data)
-
-            if isinstance(channel, discord.CategoryChannel):
-                channel_data.update({
-                    "type": "category",
-                })
-
-                self.data["categories"].append(channel_data)
-
-        self.data["text_channels"] = sorted(self.data["text_channels"], key=lambda c: c["position"])
-        self.data["voice_channels"] = sorted(self.data["voice_channels"], key=lambda c: c["position"])
-        self.data["categories"] = sorted(self.data["categories"], key=lambda c: c["position"])
+        for vchannel in self.guild.voice_channels:
+            self.data["voice_channels"].append({
+                "name": vchannel.name,
+                "position": vchannel.position,
+                "category": None if vchannel.category is None else vchannel.category.id,
+                "id": vchannel.id,
+                "overwrites": self._overwrites_to_json(vchannel.overwrites),
+                "bitrate": vchannel.bitrate,
+                "user_limit": vchannel.user_limit,
+            })
 
     async def _save_roles(self):
-        position = 0
-        for role in sorted(self.guild.roles, key=lambda r: r.position):
-            print(role, role.position)
-            if role.managed:
+        for role in self.guild.roles:
+            if role.manages:
                 continue
 
-            role_data = {
+            self.data["roles"].append({
                 "id": role.id,
                 "default": role.is_default(),
                 "name": role.name,
                 "permissions": role.permissions.value,
                 "color": role.color.value,
                 "hoist": role.hoist,
-                "position": position,
+                "position": role.position,
                 "mentionable": role.mentionable
-            }
-
-            self.data["roles"].append(role_data)
-            position += 1
+            })
 
     async def _save_members(self):
         for member in self.guild.members:
-            member_data = {
+            self.data["members"].append({
                 "id": member.id,
                 "name": member.name,
                 "nick": member.nick,
                 "roles": [role.id for role in member.roles[1:]]
-            }
-
-            self.data["members"].append(member_data)
+            })
 
     async def _save_bans(self):
         for user, reason in await self.guild.bans():
-            ban_data = {
+            self.data["bans"].append({
                 "user": user,
                 "reason": reason
-            }
+            })
 
-            self.data["bans"].append(ban_data)
-
-    async def save_guild(self, guild, creator):
-        self.guild = guild
+    async def save(self, creator, chatlog=100):
         self.data = {
             "creator": creator.id,
             "id": self.guild.id,
             "name": self.guild.name,
             "owner": self.guild.owner.id,
+            "member_count": self.guild.member_count,
             "region": str(self.guild.region),
             "afk_timeout": self.guild.afk_timeout,
             "afk_channel": None if self.guild.afk_channel is None else self.guild.afk_channel.id,
@@ -134,17 +117,21 @@ class BackupSaver:
             "categories": [],
             "roles": [],
             "members": [],
-            "bans": []
+            "bans": [],
         }
 
-        await self._save_channels()
         await self._save_roles()
+        await self._save_channels()
         await self._save_members()
         await self._save_bans()
 
+    def __dict__(self):
+        return self.data
+
 
 class BackupLoader:
-    def __init__(self, bot):
+    def __init__(self, data, bot):
+        self.data = data
         self.bot = bot
         self.id_translator = {}
 
@@ -163,226 +150,100 @@ class BackupLoader:
 
         return overwrites
 
-    async def _clear_guild(self):
-        for role in self.guild.roles:
-            if role.managed or role.is_default():
-                continue
+    async def _prepare_guild(self):
+        if self.options.get("roles"):
+            for role in self.guild.roles:
+                if not role.managed and not role.is_default():
+                    await role.delete(reasone=self.reason)
 
-            await role.delete()
-
-        for channel in self.guild.channels:
-            await channel.delete()
+        if self.options.get("channels"):
+            for channel in self.guild.channels:
+                await channel.dete(reason=self.reason)
 
     async def _load_roles(self):
-        positioner = {}
         for role in self.data["roles"]:
-            if role["default"]:
-                await self.guild.default_role.edit(
-                    permissions=discord.Permissions(role["permissions"])
-                )
-                self.id_translator[role["id"]] = self.guild.default_role.id
+            created = await self.guild.create_role(
+                name=role["name"],
+                hoist=role["hoist"],
+                mentionable=role["mentionable"],
+                color=discord.Color(role["color"]),
+                permissions=discord.Permissions(role["permissions"])
+            )
+            self.id_translator[role["id"]] = created.id
 
-            matches = list(filter(lambda r:
-                                  r.name == role["name"] and
-                                  r.color.value == role["color"] and
-                                  r.permissions.value == role["permissions"],
+    async def _load_categories(self):
+        for category in self.data["categories"]:
+            created = await self.guild.create_category_channel(
+                name=category["name"],
+                overwrites=self.overwrites_from_json(category["overwrites"])
+            )
+            self.id_translator[category["id"]] = created.id
 
-                                  self.guild.roles))
+    async def _load_text_channels(self):
+        for tchannel in self.data["text_channels"]:
+            created = await self.guild.create_text_channel(
+                name=tchannel["name"],
+                overwrites=self.overwrites_from_json(tchannel["overwrites"]),
+                category=discord.Object(self.id_translator.get(tchannel["category"]))
+            )
+            await created.edit(
+                topic=tchannel["topic"],
+                nsfw=tchannel["nsfw"],
+            )
+            self.id_translator[tchannel["id"]] = created.id
 
-            if len(matches) > 0:
-                positioner[matches[0]] = role["position"]
-                self.id_translator[role["id"]] = matches[0].id
-
-            else:
-                created = await self.guild.create_role(
-                    name=role["name"],
-                    hoist=role["hoist"],
-                    mentionable=role["mentionable"],
-                    color=discord.Color(role["color"]),
-                    permissions=discord.Permissions(role["permissions"])
-                )
-                self.id_translator[role["id"]] = created.id
-                positioner[created] = role["position"]
-
-        for role in self.guild.roles:
-            if not role.managed and not role.is_default() and role not in positioner.keys():
-                await role.delete()
-
-        for role, position in positioner.items():
-            print(role.name, position)
-            try:
-                await role.edit(position=position)
-            except Exception as e:
-                print(e)
+    async def _load_voice_channels(self):
+        for vchannel in self.data["voice_channels"]:
+            created = await self.guild.create_voice_channel(
+                name=vchannel["name"],
+                overwrites=self.overwrites_from_json(vchannel["overwrites"]),
+                category=discord.Object(self.id_translator.get(vchannel["category"]))
+            )
+            await created.edit(
+                bitrate=vchannel["bitrate"],
+                user_limit=vchannel["user_limit"]
+            )
+            self.id_translator[vchannel["id"]] = created.id
 
     async def _load_channels(self):
         await self._load_categories()
         await self._load_text_channels()
         await self._load_voice_channels()
 
-    async def _load_categories(self):
-        positioner = {}
-        to_create = []
-        for category in self.data["categories"]:
-            matches = list(filter(lambda c:
-                                  c.name == category["name"] and
-                                  len(overwrites_to_json(c.overwrites)) == len(category["overwrites"]),
+    async def _load_bans(self):
+        for ban in self.data["bans"]:
+            try:
+                await self.guild.ban(user=discord.Object(ban["user"]), reason=ban["reason"])
+            except:
+                # User probably doesn't exist anymore (or is already banned?)
+                pass
 
-                                  self.guild.categories))
+    async def _load_member_list(self):
+        session = aiohttp.ClientSession(loop=self.bot.loop)
+        async with session.post(
+            url="https://api.paste.ee/v1/pastes",
+            headers={"X-Auth-Token": "a33dENSQIZdOdjuHkloI3aB20lsZV4Tlk9qBFD8f5"},
+            json={
+                "encrypted": True,
+                "description": f"Members of '{self.data['name']}'",
+                "sections": [
+                    {
+                        "name": "Members",
+                        "contents": "\n".join(
+                            [f"{member['name']}:\n"
+                             f"   Nick: {member['nick']}\n"
+                             f"   Roles: \n"
+                             f"   Id: {member['id']}" for member in sorted(self.data["members"], key=lambda m: len(member['roles']), reverse=True)]
+                        )
+                    }
+                ]
+            }
+        ) as response:
+            return response
 
-            if len(matches) > 0:
-                positioner[matches[0]] = category["position"]
-                self.id_translator[category["id"]] = matches[0].id
 
-            else:
-                to_create.append(category)
-
-        for category in self.guild.categories:
-            if category not in positioner.keys():
-                await category.delete()
-
-        for category in to_create:
-            created = await self.guild.create_category_channel(
-                name=category["name"],
-                overwrites=self.overwrites_from_json(category["overwrites"])
-            )
-            self.id_translator[category["id"]] = created.id
-            positioner[created] = category["position"]
-
-        for category, position in positioner.items():
-            await category.edit(position=position)
-
-    async def _load_text_channels(self):
-        positioner = {}
-        to_create = []
-        for channel in self.data["text_channels"]:
-            matches = list(filter(lambda c:
-                                  c.name == channel["name"] and
-                                  c.topic == channel["topic"] and
-                                  len(overwrites_to_json(c.overwrites)) == len(channel["overwrites"]) and
-                                  c.is_nsfw() == channel["nsfw"],
-
-                                  self.guild.text_channels))
-
-            if len(matches) > 0:
-                positioner[matches[0]] = channel["position"]
-                self.id_translator[channel["id"]] = matches[0].id
-
-                await matches[0].edit(
-                    category=discord.Object(self.id_translator.get(channel["category"]))
-                )
-
-            else:
-                to_create.append(channel)
-
-        for channel in self.guild.text_channels:
-            if channel not in positioner.keys():
-                await channel.delete()
-
-        for channel in to_create:
-            created = await self.guild.create_text_channel(
-                name=channel["name"],
-                overwrites=self.overwrites_from_json(channel["overwrites"]),
-                category=discord.Object(self.id_translator.get(channel["category"]))
-            )
-
-            await created.edit(
-                topic=channel["topic"],
-                nsfw=channel["nsfw"],
-            )
-
-            positioner[created] = channel["position"]
-            self.id_translator[channel["id"]] = created.id
-
-        for channel, position in positioner.items():
-            await channel.edit(position=position)
-
-    async def _load_voice_channels(self):
-        positioner = {}
-        to_create = []
-        for channel in self.data["voice_channels"]:
-            matches = list(filter(lambda c:
-                                  c.name == channel["name"] and
-                                  c.bitrate == channel["bitrate"] and
-                                  c.user_limit == channel["user_limit"] and
-                                  len(overwrites_to_json(c.overwrites)) == len(channel["overwrites"]),
-
-                                  self.guild.voice_channels))
-
-            if len(matches) > 0:
-                positioner[matches[0]] = channel["position"]
-                self.id_translator[channel["id"]] = matches[0].id
-
-                await matches[0].edit(
-                    category=discord.Object(self.id_translator.get(channel["category"]))
-                )
-
-            else:
-                to_create.append(channel)
-
-        for channel in self.guild.voice_channels:
-            if channel not in positioner.keys():
-                await channel.delete()
-
-        for channel in to_create:
-            created = await self.guild.create_voice_channel(
-                name=channel["name"],
-                overwrites=self.overwrites_from_json(channel["overwrites"]),
-                category=discord.Object(self.id_translator.get(channel["category"]))
-            )
-
-            await created.edit(
-                bitrate=channel["bitrate"],
-                user_limit = channel["user_limit"]
-            )
-
-            positioner[created] = channel["position"]
-            self.id_translator[channel["id"]] = created.id
-
-        for channel, position in positioner.items():
-            await channel.edit(position=position)
-
-    async def load_backup(self, data, guild, hard=False, **options):
+    async def load(self, guild, loader: discord.User, chatlog, **options):
         self.guild = guild
-        self.data = data
-        self.id_translator = {}
-
-        if hard:
-            await self._clear_guild()
-
-        await self._load_roles()
-        await self._load_channels()
-
-
-class Backup(BackupLoader, BackupSaver):
-    def __init__(self, bot, guild=None, creator=None, data=None):
-        if data is None and (creator is None or guild is None):
-            raise ValueError
-
-        self.bot = bot
-        self.data = None
-        self.guild = guild
-        self.data = data
-
-        super().__init__(bot)
-
-    @classmethod
-    async def from_data(cls, bot, data):
-        instance = cls(bot, data=data)
-        return instance
-
-    @classmethod
-    async def from_guild(cls, bot, guild, creator=None):
-        instance = cls(bot, guild=guild, creator=creator)
-        await instance.save_guild(guild, creator)
-        return instance
-
-    async def load(self, guild):
-        await self.load_backup(self.data, guild)
-
-    @property
-    def json(self):
-        return self.data
-
-    def to_json(self):
-        return self.data
+        self.options = options
+        self.loader = loader
+        self.reason = f"Backup loaded by {loader}"
