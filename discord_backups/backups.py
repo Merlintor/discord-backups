@@ -263,7 +263,7 @@ class BackupLoader:
             )
 
             webh = await created.create_webhook(name="chatlog")
-            for message in tchannel["messages"]:
+            for message in tchannel["messages"][-self.chatlog:]:
                 try:
                     await webh.send(
                         username=message["author"]["name"],
@@ -307,6 +307,7 @@ class BackupLoader:
 
     async def load(self, guild, loader: discord.User, chatlog, **options):
         self.guild = guild
+        self.chatlog = chatlog
         self.options.update(options)
         self.loader = loader
         self.reason = f"Backup loaded by {loader}"
