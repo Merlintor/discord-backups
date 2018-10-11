@@ -1,9 +1,12 @@
-import discord
 import aiohttp
+import discord
+import traceback
 
 
 class BackupSaver():
-    def __init__(self, guild):
+    def __init__(self, bot, session, guild):
+        self.session = session
+        self.bot = bot
         self.guild = guild
         self.data = {}
 
@@ -33,10 +36,15 @@ class BackupSaver():
                 "messages": [{
                     "id": message.id,
                     "content": message.system_content,
-                    "author": message.author.id,
+                    "author": {
+                        "id": message.author.id,
+                        "name": message.author.name,
+                        "discriminator": message.author.discriminator,
+                        "avatar_url": message.author.avatar_url
+                    },
                     "pinned": message.pinned,
                     "attachments": [attach.url for attach in message.attachments],
-                    "embed": [embed.to_dict() for embed in message.embeds],
+                    "embeds": [embed.to_dict() for embed in message.embeds],
                     "reactions": [
                         str(reaction.emoji.name)
                         if isinstance(reaction.emoji, discord.Emoji) else str(reaction.emoji)
@@ -67,7 +75,7 @@ class BackupSaver():
 
     async def _save_roles(self):
         for role in self.guild.roles:
-            if role.manages:
+            if role.managed:
                 continue
 
             self.data["roles"].append({
@@ -86,19 +94,62 @@ class BackupSaver():
             self.data["members"].append({
                 "id": member.id,
                 "name": member.name,
+                "discriminator": member.discriminator,
                 "nick": member.nick,
                 "roles": [role.id for role in member.roles[1:]]
             })
 
     async def _save_bans(self):
         for user, reason in await self.guild.bans():
-            self.data["bans"].append({
-                "user": user,
-                "reason": reason
-            })
+            try:
+                self.data["bans"].append({
+                    "user": user.id,
+                    "reason": reason
+                })
+            except:
+                # User probably doesn't exist anymore
+                pass
+
+    async def _paste(self):
+        """Should be the last thing that gets saved"""
+        async with self.session.post(
+                url="https://api.paste.ee/v1/pastes",
+                headers={"X-Auth-Token": "uwvWc7GW1b1iLAMiaWZZTGCcJgN8OPu7usWoM97rB"},
+                json={
+                    "encrypted": True,
+                    "description": f"Members of '{self.data['name']}' (Only members with roles are listed)",
+                    "sections": [
+                        {
+                            "name": "Members",
+                            "contents": "\n".join(
+                                [f"{member.name}:\n"
+                                 f"   Nick: {member.nick}\n"
+                                 f"   Roles: {', '.join([role.name for role in member.roles[1:]])}\n"
+                                 f"   Id: {member.id}\n" for member in
+                                 sorted(self.guild.members, key=lambda m: len(m.roles), reverse=True)
+                                 if not member.bot if len(member.roles) > 1]
+                            )
+                        },
+                        {
+                            "name": "Bots",
+                            "contents": "\n".join(
+                                [f"{bot.name}:\n"
+                                 f"   Nick: {bot.nick}\n"
+                                 f"   Roles: {', '.join([role.name for role in bot.roles[1:]])}\n"
+                                 f"   Id: {bot.id}\n"
+                                 f"   Invite: https://discordapp.com/api/oauth2/authorize?client_id={bot.id}"
+                                 f"&permissions={bot.guild_permissions.value}&scope=bot\n" for bot in self.guild.members
+                                 if bot.bot if len(bot.roles) > 1]
+                            )
+                        }
+                    ]
+                }
+        ) as response:
+            self.data["paste"] = (await response.json()).get("link")
 
     async def save(self, creator, chatlog=100):
         self.data = {
+            "version": 0.2,
             "creator": creator.id,
             "id": self.guild.id,
             "name": self.guild.name,
@@ -112,6 +163,8 @@ class BackupSaver():
             "explicit_content_filter": str(self.guild.explicit_content_filter),
             "large": self.guild.large,
 
+            "paste": "",
+
             "text_channels": [],
             "voice_channels": [],
             "categories": [],
@@ -124,23 +177,29 @@ class BackupSaver():
         await self._save_channels()
         await self._save_members()
         await self._save_bans()
+        await self._paste()
+
+        return self.data
 
     def __dict__(self):
         return self.data
 
 
 class BackupLoader:
-    def __init__(self, data, bot):
+    def __init__(self, bot, session, data):
+        self.session = session
         self.data = data
         self.bot = bot
         self.id_translator = {}
+        self.options = {"channels": True, "roles": True}
 
-    def overwrites_from_json(self, json):
+
+    def _overwrites_from_json(self, json):
         overwrites = {}
         for union_id, overwrite in json.items():
             union = self.guild.get_member(union_id)
             if union is None:
-                roles = list(filter(lambda r: r.id == self.id_translator.get(union_id), self.guild.roles))
+                roles = list(filter(lambda r: r.id == self.id_translator.get(int(union_id)), self.guild.roles))
                 if len(roles) == 0:
                     continue
 
@@ -150,32 +209,44 @@ class BackupLoader:
 
         return overwrites
 
+    def _clean_content(self, content):
+        content = content.replace("@everyone", "@\u200beveryone")
+        content = content.replace("@here", "@\u200bhere")
+        return content
+
     async def _prepare_guild(self):
         if self.options.get("roles"):
             for role in self.guild.roles:
                 if not role.managed and not role.is_default():
-                    await role.delete(reasone=self.reason)
+                    await role.delete(reason=self.reason)
 
         if self.options.get("channels"):
             for channel in self.guild.channels:
-                await channel.dete(reason=self.reason)
+                await channel.delete(reason=self.reason)
 
     async def _load_roles(self):
-        for role in self.data["roles"]:
-            created = await self.guild.create_role(
-                name=role["name"],
-                hoist=role["hoist"],
-                mentionable=role["mentionable"],
-                color=discord.Color(role["color"]),
-                permissions=discord.Permissions(role["permissions"])
-            )
+        for role in reversed(self.data["roles"]):
+            if role["default"]:
+                await self.guild.default_role.edit(
+                    permissions=discord.Permissions(role["permissions"])
+                )
+                created = self.guild.default_role
+            else:
+                created = await self.guild.create_role(
+                    name=role["name"],
+                    hoist=role["hoist"],
+                    mentionable=role["mentionable"],
+                    color=discord.Color(role["color"]),
+                    permissions=discord.Permissions(role["permissions"])
+                )
+
             self.id_translator[role["id"]] = created.id
 
     async def _load_categories(self):
         for category in self.data["categories"]:
             created = await self.guild.create_category_channel(
                 name=category["name"],
-                overwrites=self.overwrites_from_json(category["overwrites"])
+                overwrites=self._overwrites_from_json(category["overwrites"])
             )
             self.id_translator[category["id"]] = created.id
 
@@ -183,20 +254,36 @@ class BackupLoader:
         for tchannel in self.data["text_channels"]:
             created = await self.guild.create_text_channel(
                 name=tchannel["name"],
-                overwrites=self.overwrites_from_json(tchannel["overwrites"]),
+                overwrites=self._overwrites_from_json(tchannel["overwrites"]),
                 category=discord.Object(self.id_translator.get(tchannel["category"]))
             )
             await created.edit(
                 topic=tchannel["topic"],
                 nsfw=tchannel["nsfw"],
             )
+
+            webh = await created.create_webhook(name="chatlog")
+            for message in tchannel["messages"]:
+                try:
+                    await webh.send(
+                        username=message["author"]["name"],
+                        avatar_url=message["author"]["avatar_url"],
+                        content=self._clean_content(message["content"]),
+                        embeds=[discord.Embed.from_data(embed) for embed in message["embeds"]]
+                    )
+                except:
+                    # Content and embeds are probably empty
+                    pass
+
+            await webh.delete()
+
             self.id_translator[tchannel["id"]] = created.id
 
     async def _load_voice_channels(self):
         for vchannel in self.data["voice_channels"]:
             created = await self.guild.create_voice_channel(
                 name=vchannel["name"],
-                overwrites=self.overwrites_from_json(vchannel["overwrites"]),
+                overwrites=self._overwrites_from_json(vchannel["overwrites"]),
                 category=discord.Object(self.id_translator.get(vchannel["category"]))
             )
             await created.edit(
@@ -218,32 +305,13 @@ class BackupLoader:
                 # User probably doesn't exist anymore (or is already banned?)
                 pass
 
-    async def _load_member_list(self):
-        session = aiohttp.ClientSession(loop=self.bot.loop)
-        async with session.post(
-            url="https://api.paste.ee/v1/pastes",
-            headers={"X-Auth-Token": "a33dENSQIZdOdjuHkloI3aB20lsZV4Tlk9qBFD8f5"},
-            json={
-                "encrypted": True,
-                "description": f"Members of '{self.data['name']}'",
-                "sections": [
-                    {
-                        "name": "Members",
-                        "contents": "\n".join(
-                            [f"{member['name']}:\n"
-                             f"   Nick: {member['nick']}\n"
-                             f"   Roles: \n"
-                             f"   Id: {member['id']}" for member in sorted(self.data["members"], key=lambda m: len(member['roles']), reverse=True)]
-                        )
-                    }
-                ]
-            }
-        ) as response:
-            return response
-
-
     async def load(self, guild, loader: discord.User, chatlog, **options):
         self.guild = guild
-        self.options = options
+        self.options.update(options)
         self.loader = loader
         self.reason = f"Backup loaded by {loader}"
+
+        await self._prepare_guild()
+        await self._load_roles()
+        await self._load_channels()
+        await self._load_bans()
