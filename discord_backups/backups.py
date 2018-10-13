@@ -326,21 +326,21 @@ class BackupInfo():
         ret = "```"
         for channel in self.data["text_channels"]:
             if channel.get("category") is None:
-                ret += "# " + channel["name"]
+                ret += "\n# " + channel["name"]
 
         for channel in self.data["voice_channels"]:
             if channel.get("category") is None:
-                ret += "  " + channel["name"]
+                ret += "\n  " + channel["name"]
 
         for category in self.data["categories"]:
-            ret += "⯆ " + category["name"]
+            ret += "\n⯆ " + category["name"]
             for channel in self.data["text_channels"]:
                 if channel.get("category") == category["id"]:
-                    ret += "  # " + channel["name"]
+                    ret += "\n  # " + channel["name"]
 
             for channel in self.data["voice_channels"]:
                 if channel.get("category") == category["id"]:
-                    ret += "    " + channel["name"]
+                    ret += "\n    " + channel["name"]
 
         return ret[:990] + "```"
 
@@ -348,7 +348,7 @@ class BackupInfo():
     def roles(self):
         ret = "```"
         for role in self.data["roles"]:
-            ret += role["name"]
+            ret += "\n" + role["name"]
 
         return ret[:990] + "```"
 
