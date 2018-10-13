@@ -332,6 +332,7 @@ class BackupInfo():
             if channel.get("category") is None:
                 ret += "\n  " + channel["name"]
 
+        ret += "\n"
         for category in self.data["categories"]:
             ret += "\n⯆ " + category["name"]
             for channel in self.data["text_channels"]:
@@ -342,12 +343,14 @@ class BackupInfo():
                 if channel.get("category") == category["id"]:
                     ret += "\n    " + channel["name"]
 
+            ret += "\n"
+
         return ret[:990] + "```"
 
     @property
     def roles(self):
         ret = "```"
-        for role in self.data["roles"]:
+        for role in reversed(self.data["roles"]):
             ret += "\n" + role["name"]
 
         return ret[:990] + "```"
