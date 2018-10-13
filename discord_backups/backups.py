@@ -1,4 +1,6 @@
 import discord
+import time
+from datetime import datetime
 
 from . import utils
 
@@ -150,6 +152,7 @@ class BackupSaver():
     async def save(self, creator, chatlog=100):
         self.data = {
             "version": 0.2,
+            "timestamp": time.mktime(datetime.utcnow().timetuple()),
             "creator": creator.id,
             "id": self.guild.id,
             "name": self.guild.name,
@@ -311,3 +314,62 @@ class BackupLoader:
         await self._load_roles()
         await self._load_channels()
         await self._load_bans()
+
+
+class BackupInfo():
+    def __init__(self, bot, data):
+        self.bot = bot
+        self.data = data
+
+    @property
+    def channels(self):
+        ret = "```"
+        for channel in self.data["text_channels"]:
+            if channel.get("category") is None:
+                ret += "# " + channel["name"]
+
+        for channel in self.data["voice_channels"]:
+            if channel.get("category") is None:
+                ret += "  " + channel["name"]
+
+        for category in self.data["categories"]:
+            ret += "⯆ " + category["name"]
+            for channel in self.data["text_channels"]:
+                if channel.get("category") == category["id"]:
+                    ret += "  # " + channel["name"]
+
+            for channel in self.data["voice_channels"]:
+                if channel.get("category") == category["id"]:
+                    ret += "    " + channel["name"]
+
+        return ret[:990] + "```"
+
+    @property
+    def roles(self):
+        ret = "```"
+        for role in self.data["roles"]:
+            ret += role["name"]
+
+        return ret[:990] + "```"
+
+    @property
+    def member_count(self):
+        return self.data["member_count"]
+
+    @property
+    def chatlog(self):
+        max_messages = 0
+        for channel in self.data["text_channels"]:
+            if len(channel["messages"]) > max_messages:
+                max_messages = len(channel["messages"])
+
+        return max_messages
+
+    @property
+    def timestamp(self):
+        return datetime.fromtimestamp(self.data["timestamp"])
+
+    @property
+    def creator(self):
+        return self.data["creator"]
+
