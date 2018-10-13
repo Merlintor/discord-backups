@@ -323,7 +323,7 @@ class BackupInfo():
         self.data = data
 
     @property
-    def icon_name(self):
+    def icon_url(self):
         return self.data["icon_url"]
 
     @property
