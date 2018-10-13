@@ -156,6 +156,7 @@ class BackupSaver():
             "creator": creator.id,
             "id": self.guild.id,
             "name": self.guild.name,
+            "icon_url": self.guild.icon_url,
             "owner": self.guild.owner.id,
             "member_count": self.guild.member_count,
             "region": str(self.guild.region),
@@ -322,7 +323,14 @@ class BackupInfo():
         self.data = data
 
     @property
-    def channels(self):
+    def icon_name(self):
+        return self.data["icon_url"]
+
+    @property
+    def name(self):
+        return self.data["name"]
+
+    def channels(self, limit=1000):
         ret = "```"
         for channel in self.data["text_channels"]:
             if channel.get("category") is None:
@@ -345,15 +353,14 @@ class BackupInfo():
 
             ret += "\n"
 
-        return ret[:990] + "```"
+        return ret[:limit-10] + "```"
 
-    @property
-    def roles(self):
+    def roles(self, limit=1000):
         ret = "```"
         for role in reversed(self.data["roles"]):
             ret += "\n" + role["name"]
 
-        return ret[:990] + "```"
+        return ret[:limit-10] + "```"
 
     @property
     def member_count(self):
