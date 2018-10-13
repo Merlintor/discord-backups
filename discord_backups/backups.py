@@ -326,22 +326,22 @@ class BackupInfo():
         ret = "```"
         for channel in self.data["text_channels"]:
             if channel.get("category") is None:
-                ret += "\n# " + channel["name"]
+                ret += "\n#" + channel["name"]
 
         for channel in self.data["voice_channels"]:
             if channel.get("category") is None:
-                ret += "\n  " + channel["name"]
+                ret += "\n " + channel["name"]
 
         ret += "\n"
         for category in self.data["categories"]:
             ret += "\n⯆ " + category["name"]
             for channel in self.data["text_channels"]:
                 if channel.get("category") == category["id"]:
-                    ret += "\n  # " + channel["name"]
+                    ret += "\n  #" + channel["name"]
 
             for channel in self.data["voice_channels"]:
                 if channel.get("category") == category["id"]:
-                    ret += "\n    " + channel["name"]
+                    ret += "\n   " + channel["name"]
 
             ret += "\n"
 
