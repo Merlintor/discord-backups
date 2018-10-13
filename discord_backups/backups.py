@@ -1,6 +1,6 @@
-import aiohttp
 import discord
-import traceback
+
+from . import utils
 
 
 class BackupSaver():
@@ -209,11 +209,6 @@ class BackupLoader:
 
         return overwrites
 
-    def _clean_content(self, content):
-        content = content.replace("@everyone", "@\u200beveryone")
-        content = content.replace("@here", "@\u200bhere")
-        return content
-
     async def _prepare_guild(self):
         if self.options.get("roles"):
             for role in self.guild.roles:
@@ -268,7 +263,7 @@ class BackupLoader:
                     await webh.send(
                         username=message["author"]["name"],
                         avatar_url=message["author"]["avatar_url"],
-                        content=self._clean_content(message["content"]),
+                        content=utils.clean_content(message["content"]),
                         embeds=[discord.Embed.from_data(embed) for embed in message["embeds"]]
                     )
                 except:
