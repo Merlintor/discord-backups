@@ -76,7 +76,7 @@ async def copy_guild(origin, target, chatlog=20):
             await webh.send(
                 username=message.author.name,
                 avatar_url=message.author.avatar_url,
-                content=utils.clean_content(message.system_content),
+                content=utils.clean_content(message.system_content) + "\n".join([attach.url for attach in message.attachments]),
                 embeds=message.embeds
             )
 
