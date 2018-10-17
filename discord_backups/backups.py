@@ -13,7 +13,7 @@ class BackupSaver():
         self.data = {}
 
     def _overwrites_to_json(self, overwrites):
-        return {overwrite[0].id: overwrite[1]._values for overwrite in overwrites}
+        return {str(overwrite[0].id): overwrite[1]._values for overwrite in overwrites}
 
     async def _save_channels(self):
         for category in self.guild.categories:
