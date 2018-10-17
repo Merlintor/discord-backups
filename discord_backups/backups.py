@@ -149,11 +149,8 @@ class BackupSaver():
         ) as response:
             self.data["paste"] = (await response.json()).get("link")
 
-    async def save(self, creator, chatlog=100):
+    async def save(self, chatlog=100):
         self.data = {
-            "version": 0.2,
-            "timestamp": time.mktime(datetime.utcnow().timetuple()),
-            "creator": creator.id,
             "id": self.guild.id,
             "name": self.guild.name,
             "icon_url": self.guild.icon_url,
@@ -374,12 +371,4 @@ class BackupInfo():
                 max_messages = len(channel["messages"])
 
         return max_messages
-
-    @property
-    def timestamp(self):
-        return datetime.fromtimestamp(self.data["timestamp"])
-
-    @property
-    def creator(self):
-        return self.data["creator"]
 
