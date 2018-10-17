@@ -20,7 +20,7 @@ class BackupSaver():
             self.data["categories"].append({
                 "name": category.name,
                 "position": category.position,
-                "category": None if category.category is None else category.category.id,
+                "category": None if category.category is None else str(category.category.id),
                 "id": category.id,
                 "overwrites": self._overwrites_to_json(category.overwrites)
             })
@@ -29,17 +29,17 @@ class BackupSaver():
             self.data["text_channels"].append({
                 "name": tchannel.name,
                 "position": tchannel.position,
-                "category": None if tchannel.category is None else tchannel.category.id,
-                "id": tchannel.id,
+                "category": None if tchannel.category is None else str(tchannel.category.id),
+                "id": str(tchannel.id),
                 "overwrites": self._overwrites_to_json(tchannel.overwrites),
                 "topic": tchannel.topic,
                 "slowmode_delay": tchannel.slowmode_delay,
                 "nsfw": tchannel.is_nsfw(),
                 "messages": [{
-                    "id": message.id,
+                    "id": str(message.id),
                     "content": message.system_content,
                     "author": {
-                        "id": message.author.id,
+                        "id": str(message.author.id),
                         "name": message.author.name,
                         "discriminator": message.author.discriminator,
                         "avatar_url": message.author.avatar_url
@@ -56,7 +56,7 @@ class BackupSaver():
                 } async for message in tchannel.history(limit=100, reverse=True)],
 
                 "webhooks": [{
-                    "channel": webhook.channel.id,
+                    "channel": str(webhook.channel.id),
                     "name": webhook.name,
                     "avatar": webhook.avatar_url,
                     "url": webhook.url
@@ -68,8 +68,8 @@ class BackupSaver():
             self.data["voice_channels"].append({
                 "name": vchannel.name,
                 "position": vchannel.position,
-                "category": None if vchannel.category is None else vchannel.category.id,
-                "id": vchannel.id,
+                "category": None if vchannel.category is None else str(vchannel.category.id),
+                "id": str(vchannel.id),
                 "overwrites": self._overwrites_to_json(vchannel.overwrites),
                 "bitrate": vchannel.bitrate,
                 "user_limit": vchannel.user_limit,
@@ -81,7 +81,7 @@ class BackupSaver():
                 continue
 
             self.data["roles"].append({
-                "id": role.id,
+                "id": str(role.id),
                 "default": role.is_default(),
                 "name": role.name,
                 "permissions": role.permissions.value,
@@ -94,18 +94,18 @@ class BackupSaver():
     async def _save_members(self):
         for member in self.guild.members:
             self.data["members"].append({
-                "id": member.id,
+                "id": str(member.id),
                 "name": member.name,
                 "discriminator": member.discriminator,
                 "nick": member.nick,
-                "roles": [role.id for role in member.roles[1:]]
+                "roles": [str(role.id) for role in member.roles[1:]]
             })
 
     async def _save_bans(self):
         for user, reason in await self.guild.bans():
             try:
                 self.data["bans"].append({
-                    "user": user.id,
+                    "user": str(user.id),
                     "reason": reason
                 })
             except:
@@ -151,14 +151,14 @@ class BackupSaver():
 
     async def save(self, chatlog=100):
         self.data = {
-            "id": self.guild.id,
+            "id": str(self.guild.id),
             "name": self.guild.name,
             "icon_url": self.guild.icon_url,
-            "owner": self.guild.owner.id,
+            "owner": str(self.guild.owner.id),
             "member_count": self.guild.member_count,
             "region": str(self.guild.region),
             "afk_timeout": self.guild.afk_timeout,
-            "afk_channel": None if self.guild.afk_channel is None else self.guild.afk_channel.id,
+            "afk_channel": None if self.guild.afk_channel is None else str(self.guild.afk_channel.id),
             "mfa_level": self.guild.mfa_level,
             "verification_level": str(self.guild.verification_level),
             "explicit_content_filter": str(self.guild.explicit_content_filter),
@@ -198,9 +198,9 @@ class BackupLoader:
     def _overwrites_from_json(self, json):
         overwrites = {}
         for union_id, overwrite in json.items():
-            union = self.guild.get_member(union_id)
+            union = self.guild.get_member(int(union_id))
             if union is None:
-                roles = list(filter(lambda r: r.id == self.id_translator.get(int(union_id)), self.guild.roles))
+                roles = list(filter(lambda r: r.id == self.id_translator.get(union_id), self.guild.roles))
                 if len(roles) == 0:
                     continue
 
