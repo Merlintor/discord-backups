@@ -21,7 +21,7 @@ class BackupSaver():
                 "name": category.name,
                 "position": category.position,
                 "category": None if category.category is None else str(category.category.id),
-                "id": category.id,
+                "id": str(category.id),
                 "overwrites": self._overwrites_to_json(category.overwrites)
             })
 
