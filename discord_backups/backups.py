@@ -1,6 +1,4 @@
 import discord
-import time
-from datetime import datetime
 
 from . import utils
 
@@ -258,22 +256,21 @@ class BackupLoader:
                 nsfw=tchannel["nsfw"],
             )
 
-            webh = await created.create_webhook(name="chatlog")
-            chatlog = (len(tchannel["messages"]) - 1) - self.chatlog
-            chatlog = chatlog if chatlog >= 0 else len(tchannel["messages"]) - 1
-            for message in tchannel["messages"][chatlog:]:
-                try:
-                    await webh.send(
-                        username=message["author"]["name"],
-                        avatar_url=message["author"]["avatar_url"],
-                        content=utils.clean_content(message["content"]),
-                        embeds=[discord.Embed.from_data(embed) for embed in message["embeds"]]
-                    )
-                except:
-                    # Content and embeds are probably empty
-                    pass
+            if self.chatlog != 0:
+                webh = await created.create_webhook(name="chatlog")
+                for message in tchannel["messages"][-self.chatlog:]:
+                    try:
+                        await webh.send(
+                            username=message["author"]["name"],
+                            avatar_url=message["author"]["avatar_url"],
+                            content=utils.clean_content(message["content"]),
+                            embeds=[discord.Embed.from_data(embed) for embed in message["embeds"]]
+                        )
+                    except:
+                        # Content and embeds are probably empty
+                        pass
 
-            await webh.delete()
+                await webh.delete()
 
             self.id_translator[tchannel["id"]] = created.id
 
