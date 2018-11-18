@@ -149,7 +149,7 @@ class BackupSaver():
         ) as response:
             self.data["paste"] = (await response.json()).get("link")
 
-    async def save(self, chatlog=100):
+    async def save(self, chatlog=20):
         self.data = {
             "id": str(self.guild.id),
             "name": self.guild.name,
@@ -194,13 +194,13 @@ class BackupLoader:
         self.id_translator = {}
         self.options = {"channels": True, "roles": True}
 
-
     def _overwrites_from_json(self, json):
         overwrites = {}
         for union_id, overwrite in json.items():
             union = self.guild.get_member(int(union_id))
             if union is None:
-                roles = list(filter(lambda r: r.id == self.id_translator.get(union_id), self.guild.roles))
+                roles = list(
+                    filter(lambda r: r.id == self.id_translator.get(union_id), self.guild.roles))
                 if len(roles) == 0:
                     continue
 
@@ -259,7 +259,9 @@ class BackupLoader:
             )
 
             webh = await created.create_webhook(name="chatlog")
-            for message in tchannel["messages"][-self.chatlog:]:
+            chatlog = (len(tchannel["messages"]) - 1) - self.chatlog
+            chatlog = chatlog if chatlog >= 0 else len(tchannel["messages"]) - 1
+            for message in tchannel["messages"][chatlog:]:
                 try:
                     await webh.send(
                         username=message["author"]["name"],
@@ -350,14 +352,14 @@ class BackupInfo():
 
             ret += "\n"
 
-        return ret[:limit-10] + "```"
+        return ret[:limit - 10] + "```"
 
     def roles(self, limit=1000):
         ret = "```"
         for role in reversed(self.data["roles"]):
             ret += "\n" + role["name"]
 
-        return ret[:limit-10] + "```"
+        return ret[:limit - 10] + "```"
 
     @property
     def member_count(self):
@@ -371,4 +373,3 @@ class BackupInfo():
                 max_messages = len(channel["messages"])
 
         return max_messages
-
