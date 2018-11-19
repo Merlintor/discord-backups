@@ -308,9 +308,14 @@ class BackupLoader:
         self.reason = f"Backup loaded by {loader}"
 
         await self._prepare_guild()
-        await self._load_roles()
-        await self._load_channels()
-        await self._load_bans()
+        if self.options.get("roles"):
+            await self._load_roles()
+
+        if self.options.get("channels"):
+            await self._load_channels()
+
+        if self.options.get("bans"):
+            await self._load_bans()
 
 
 class BackupInfo():
