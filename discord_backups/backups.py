@@ -110,43 +110,6 @@ class BackupSaver():
                 # User probably doesn't exist anymore
                 pass
 
-    async def _paste(self):
-        """Should be the last thing that gets saved"""
-        async with self.session.post(
-                url="https://api.paste.ee/v1/pastes",
-                headers={"X-Auth-Token": "uwvWc7GW1b1iLAMiaWZZTGCcJgN8OPu7usWoM97rB"},
-                json={
-                    "encrypted": True,
-                    "description": f"Members of '{self.data['name']}' (Only members with roles are listed)",
-                    "sections": [
-                        {
-                            "name": "Members",
-                            "contents": "\n".join(
-                                [f"{member.name}:\n"
-                                 f"   Nick: {member.nick}\n"
-                                 f"   Roles: {', '.join([role.name for role in member.roles[1:]])}\n"
-                                 f"   Id: {member.id}\n" for member in
-                                 sorted(self.guild.members, key=lambda m: len(m.roles), reverse=True)
-                                 if not member.bot if len(member.roles) > 1]
-                            )
-                        },
-                        {
-                            "name": "Bots",
-                            "contents": "\n".join(
-                                [f"{bot.name}:\n"
-                                 f"   Nick: {bot.nick}\n"
-                                 f"   Roles: {', '.join([role.name for role in bot.roles[1:]])}\n"
-                                 f"   Id: {bot.id}\n"
-                                 f"   Invite: https://discordapp.com/api/oauth2/authorize?client_id={bot.id}"
-                                 f"&permissions={bot.guild_permissions.value}&scope=bot\n" for bot in self.guild.members
-                                 if bot.bot if len(bot.roles) > 1]
-                            )
-                        }
-                    ]
-                }
-        ) as response:
-            self.data["paste"] = (await response.json()).get("link")
-
     async def save(self, chatlog=20):
         self.data = {
             "id": str(self.guild.id),
@@ -162,8 +125,6 @@ class BackupSaver():
             "explicit_content_filter": str(self.guild.explicit_content_filter),
             "large": self.guild.large,
 
-            "paste": "",
-
             "text_channels": [],
             "voice_channels": [],
             "categories": [],
@@ -176,7 +137,6 @@ class BackupSaver():
         await self._save_channels()
         await self._save_members()
         await self._save_bans()
-        await self._paste()
 
         return self.data
 
