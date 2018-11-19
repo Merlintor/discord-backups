@@ -303,7 +303,9 @@ class BackupLoader:
     async def load(self, guild, loader: discord.User, chatlog, **options):
         self.guild = guild
         self.chatlog = chatlog
-        self.options.update(options)
+        if len(options) != 0:
+            self.options = options
+
         self.loader = loader
         self.reason = f"Backup loaded by {loader}"
 
