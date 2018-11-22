@@ -96,7 +96,7 @@ class BackupSaver():
                 "name": member.name,
                 "discriminator": member.discriminator,
                 "nick": member.nick,
-                "roles": [str(role.id) for role in member.roles[1:]]
+                "roles": [str(role.id) for role in member.roles[1:] if not role.managed]
             })
 
     async def _save_bans(self):
@@ -260,6 +260,23 @@ class BackupLoader:
                 # User probably doesn't exist anymore (or is already banned?)
                 pass
 
+    async def _load_member_roles(self):
+        for member in self.guild.members:
+            try:
+                fits = list(filter(lambda m: m["id"] == str(member.id), self.data["members"]))
+                if len(fits) == 0:
+                    continue
+
+                roles = [
+                    discord.Object(self.id_translator.get(role))
+                    for role in fits[0]["roles"]
+                    if role in self.id_translator
+                ]
+
+                await member.add_roles(*roles)
+            except:
+                pass
+
     async def load(self, guild, loader: discord.User, chatlog, **options):
         self.guild = guild
         self.chatlog = chatlog
@@ -278,6 +295,9 @@ class BackupLoader:
 
         if self.options.get("bans"):
             await self._load_bans()
+
+        if self.options.get("members"):
+            await self._load_member_roles()
 
 
 class BackupInfo():
