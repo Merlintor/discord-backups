@@ -1,4 +1,5 @@
 import discord
+import traceback
 
 from . import utils
 
@@ -118,6 +119,7 @@ class BackupSaver():
             "owner": str(self.guild.owner.id),
             "member_count": self.guild.member_count,
             "region": str(self.guild.region),
+            "system_channel": str(self.guild.system_channel),
             "afk_timeout": self.guild.afk_timeout,
             "afk_channel": None if self.guild.afk_channel is None else str(self.guild.afk_channel.id),
             "mfa_level": self.guild.mfa_level,
@@ -150,7 +152,7 @@ class BackupLoader:
         self.data = data
         self.bot = bot
         self.id_translator = {}
-        self.options = {"channels": True, "roles": True}
+        self.options = {"settings": True, "channels": True, "roles": True}
 
     def _overwrites_from_json(self, json):
         overwrites = {}
@@ -177,6 +179,17 @@ class BackupLoader:
         if self.options.get("channels"):
             for channel in self.guild.channels:
                 await channel.delete(reason=self.reason)
+
+    async def _load_settings(self):
+        await self.guild.edit(
+            name=self.data["name"],
+            region=discord.VoiceRegion(self.data["region"]),
+            afk_channel=self.guild.get_channel(self.id_translator.get(self.data["afk_channel"])),
+            afk_timeout=self.data["afk_timeout"],
+            # verification_level=discord.VerificationLevel(self.data["verification_level"]),
+            system_channel=self.guild.get_channel(
+                self.id_translator.get(self.data["system_channel"]))
+        )
 
     async def _load_roles(self):
         for role in reversed(self.data["roles"]):
@@ -288,16 +301,34 @@ class BackupLoader:
 
         await self._prepare_guild()
         if self.options.get("roles"):
-            await self._load_roles()
+            try:
+                await self._load_roles()
+            except:
+                traceback.print_exc()
 
         if self.options.get("channels"):
-            await self._load_channels()
+            try:
+                await self._load_channels()
+            except:
+                traceback.print_exc()
+
+        if self.options.get("settings"):
+            try:
+                await self._load_settings()
+            except:
+                traceback.print_exc()
 
         if self.options.get("bans"):
-            await self._load_bans()
+            try:
+                await self._load_bans()
+            except:
+                traceback.print_exc()
 
         if self.options.get("members"):
-            await self._load_member_roles()
+            try:
+                await self._load_member_roles()
+            except:
+                traceback.print_exc()
 
 
 class BackupInfo():
