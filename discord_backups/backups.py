@@ -236,7 +236,8 @@ class BackupLoader:
                         await webh.send(
                             username=message["author"]["name"],
                             avatar_url=message["author"]["avatar_url"],
-                            content=utils.clean_content(message["content"]),
+                            content=utils.clean_content(
+                                message["content"]) + "\n\n" + "\n".join(message["attachments"]),
                             embeds=[discord.Embed.from_data(embed) for embed in message["embeds"]]
                         )
                     except:
