@@ -269,7 +269,7 @@ class BackupLoader:
     async def _load_bans(self):
         for ban in self.data["bans"]:
             try:
-                await self.guild.ban(user=discord.Object(ban["user"]), reason=ban["reason"])
+                await self.guild.ban(user=discord.Object(int(ban["user"])), reason=ban["reason"])
             except:
                 # User probably doesn't exist anymore (or is already banned?)
                 pass
