@@ -94,8 +94,8 @@ async def copy_guild(origin, target, chatlog=20):
                     await webh.send(
                         username=message.author.name,
                         avatar_url=message.author.avatar_url,
-                        content=utils.clean_content(message.system_content) +
-                        "\n".join([attach.url for attach in message.attachments]),
+                        content=utils.clean_content(
+                            message.system_content) + "\n".join([attach.url for attach in message.attachments]),
                         embeds=message.embeds
                     )
                 except:
@@ -124,6 +124,17 @@ async def copy_guild(origin, target, chatlog=20):
     for reason, user in await origin.bans():
         try:
             await target.ban(user=user, reason=reason)
+        except:
+            pass
+
+    for tmember in target.members:
+        omember = origin.get_member(tmember.id)
+        if omember is None:
+            print("None")
+            continue
+
+        try:
+            await tmember.add_roles(*[discord.Object(ids.get(role.id)) for role in omember.roles if role.id in ids and not role.is_default()])
         except:
             pass
 
