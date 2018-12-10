@@ -104,7 +104,7 @@ class BackupSaver():
             })
 
     async def _save_bans(self):
-        for user, reason in await self.guild.bans():
+        for reason, user in await self.guild.bans():
             try:
                 self.data["bans"].append({
                     "user": str(user.id),
