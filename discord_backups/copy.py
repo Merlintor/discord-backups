@@ -121,6 +121,12 @@ async def copy_guild(origin, target, chatlog=20):
         except:
             pass
 
+    for reason, user in await origin.bans():
+        try:
+            await target.ban(user=user, reason=reason)
+        except:
+            pass
+
     await target.edit(
         name=origin.name,
         region=origin.region,
