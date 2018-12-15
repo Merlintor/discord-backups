@@ -239,7 +239,7 @@ class BackupLoader:
                     for attachment in message["attachments"]:
                         emb = discord.Embed()
                         emb.set_image(url=attachment)
-                        attachments.append(attachment)
+                        attachments.append(emb)
 
                     try:
                         await webh.send(
@@ -247,11 +247,11 @@ class BackupLoader:
                             avatar_url=message["author"]["avatar_url"],
                             content=utils.clean_content(message["content"]),
                             embeds=[discord.Embed.from_data(embed)
-                                    for embed in message["embeds"]] + attachment
+                                    for embed in message["embeds"]] + attachments
                         )
                     except:
                         # Content and embeds are probably empty
-                        pass
+                        traceback.print_exc()
 
                 await webh.delete()
 
