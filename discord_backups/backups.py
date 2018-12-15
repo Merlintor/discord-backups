@@ -238,7 +238,7 @@ class BackupLoader:
                     attachments = []
                     for attachment in message["attachments"]:
                         emb = discord.Embed()
-                        emb.set_image(attachment)
+                        emb.set_image(url=attachment)
                         attachments.append(attachment)
 
                     try:
