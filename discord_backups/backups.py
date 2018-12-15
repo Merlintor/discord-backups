@@ -235,13 +235,19 @@ class BackupLoader:
             if self.chatlog != 0:
                 webh = await created.create_webhook(name="chatlog")
                 for message in tchannel["messages"][-self.chatlog:]:
+                    attachments = []
+                    for attachment in message["attachments"]:
+                        emb = discord.Embed()
+                        emb.set_image(attachment)
+                        attachments.append(attachment)
+
                     try:
                         await webh.send(
                             username=message["author"]["name"],
                             avatar_url=message["author"]["avatar_url"],
-                            content=utils.clean_content(
-                                message["content"]) + "\n\n" + "\n".join(message["attachments"]),
-                            embeds=[discord.Embed.from_data(embed) for embed in message["embeds"]]
+                            content=utils.clean_content(message["content"]),
+                            embeds=[discord.Embed.from_data(embed)
+                                    for embed in message["embeds"]] + attachment
                         )
                     except:
                         # Content and embeds are probably empty
