@@ -55,7 +55,7 @@ class BackupSaver():
                         for reaction in message.reactions
                     ],
 
-                } async for message in tchannel.history(limit=100, reverse=True)],
+                } async for message in tchannel.history(limit=self.chatlog, reverse=True)],
 
                 "webhooks": [{
                     "channel": str(webhook.channel.id),
@@ -115,6 +115,7 @@ class BackupSaver():
                 pass
 
     async def save(self, chatlog=20):
+        self.chatlog = chatlog
         self.data = {
             "id": str(self.guild.id),
             "name": self.guild.name,
