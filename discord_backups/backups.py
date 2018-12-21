@@ -178,11 +178,17 @@ class BackupLoader:
         if self.options.get("roles"):
             for role in self.guild.roles:
                 if not role.managed and not role.is_default():
-                    await role.delete(reason=self.reason)
+                    try:
+                        await role.delete(reason=self.reason)
+                    except:
+                        pass
 
         if self.options.get("channels"):
             for channel in self.guild.channels:
-                await channel.delete(reason=self.reason)
+                try:
+                    await channel.delete(reason=self.reason)
+                except:
+                    pass
 
     async def _load_settings(self):
         await self.guild.edit(
