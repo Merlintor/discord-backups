@@ -44,7 +44,7 @@ class BackupSaver():
                         "id": str(message.author.id),
                         "name": message.author.name,
                         "discriminator": message.author.discriminator,
-                        "avatar_url": message.author.avatar_url
+                        "avatar_url": str(message.author.avatar_url)
                     },
                     "pinned": message.pinned,
                     "attachments": [attach.url for attach in message.attachments],
@@ -60,7 +60,7 @@ class BackupSaver():
                 "webhooks": [{
                     "channel": str(webhook.channel.id),
                     "name": webhook.name,
-                    "avatar": webhook.avatar_url,
+                    "avatar": str(webhook.avatar_url),
                     "url": webhook.url
 
                 } for webhook in await tchannel.webhooks()]
@@ -119,7 +119,7 @@ class BackupSaver():
         self.data = {
             "id": str(self.guild.id),
             "name": self.guild.name,
-            "icon_url": self.guild.icon_url,
+            "icon_url": str(self.guild.icon_url),
             "owner": str(self.guild.owner_id),
             "member_count": self.guild.member_count,
             "region": str(self.guild.region),
