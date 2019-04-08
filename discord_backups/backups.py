@@ -13,7 +13,7 @@ class BackupSaver():
 
     def _overwrites_to_json(self, overwrites):
         try:
-            return {str(overwrite[0].id): overwrite[1]._values for overwrite in overwrites}
+            return {str(target.id): overwrite._values for target, overwrite in overwrites.items()}
         except:
             return {}
 
@@ -55,7 +55,7 @@ class BackupSaver():
                         for reaction in message.reactions
                     ],
 
-                } async for message in tchannel.history(limit=self.chatlog, reverse=True)],
+                } async for message in tchannel.history(limit=self.chatlog, oldest_first=True)],
 
                 "webhooks": [{
                     "channel": str(webhook.channel.id),
@@ -253,7 +253,7 @@ class BackupLoader:
                             username=message["author"]["name"],
                             avatar_url=message["author"]["avatar_url"],
                             content=utils.clean_content(message["content"]),
-                            embeds=[discord.Embed.from_data(embed)
+                            embeds=[discord.Embed.from_dict(embed)
                                     for embed in message["embeds"]] + attachments
                         )
                     except:
