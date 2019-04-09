@@ -55,7 +55,7 @@ class BackupSaver():
                         for reaction in message.reactions
                     ],
 
-                } async for message in tchannel.history(limit=self.chatlog, oldest_first=True)],
+                } async for message in tchannel.history(limit=self.chatlog, oldest_first=False)],
 
                 "webhooks": [{
                     "channel": str(webhook.channel.id),
