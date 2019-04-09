@@ -241,7 +241,7 @@ class BackupLoader:
 
             if self.chatlog != 0:
                 webh = await created.create_webhook(name="chatlog")
-                for message in tchannel["messages"][-self.chatlog:]:
+                for message in reversed(tchannel["messages"][-self.chatlog:]):
                     attachments = []
                     for attachment in message["attachments"]:
                         emb = discord.Embed()
