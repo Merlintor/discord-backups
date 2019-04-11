@@ -6,22 +6,6 @@ from . import utils
 async def copy_guild(origin, target, chatlog=20):
     ids = {}
 
-    def convert_overwrites(overwrites: list):
-        ret = {}
-        for union, overwrite in overwrites:
-            try:
-                if isinstance(union, discord.Role):
-                    role = target.get_role(ids.get(union.id))
-                    if role is not None:
-                        ret[role] = overwrite
-
-                elif isinstance(union, discord.Member):
-                    ret[union] = overwrite
-            except:
-                continue
-
-        return ret
-
     for channel in target.channels:
         try:
             await channel.delete()
@@ -64,7 +48,7 @@ async def copy_guild(origin, target, chatlog=20):
         try:
             created = await target.create_category(
                 name=category.name,
-                overwrites=convert_overwrites(category.overwrites),
+                overwrites=category.overwrites,
             )
             ids[category.id] = created.id
         except:
@@ -74,7 +58,7 @@ async def copy_guild(origin, target, chatlog=20):
         try:
             created = await target.create_text_channel(
                 name=channel.name,
-                overwrites=convert_overwrites(channel.overwrites),
+                overwrites=channel.overwrites,
                 category=None if channel.category is None else target.get_channel(
                     ids.get(channel.category.id))
             )
@@ -110,7 +94,7 @@ async def copy_guild(origin, target, chatlog=20):
         try:
             created = await target.create_voice_channel(
                 name=vchannel.name,
-                overwrites=convert_overwrites(vchannel.overwrites),
+                overwrites=vchannel.overwrites,
                 category=None if vchannel.category is None else target.get_channel(
                     ids.get(vchannel.category.id))
             )
@@ -130,7 +114,6 @@ async def copy_guild(origin, target, chatlog=20):
     for tmember in target.members:
         omember = origin.get_member(tmember.id)
         if omember is None:
-            print("None")
             continue
 
         try:
