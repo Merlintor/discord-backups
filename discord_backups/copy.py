@@ -6,6 +6,22 @@ from . import utils
 async def copy_guild(origin, target, chatlog=20):
     ids = {}
 
+    def convert_overwrites(overwrites):
+        ret = {}
+        for union, overwrite in overwrites.items():
+            try:
+                if isinstance(union, discord.Role):
+                    role = target.get_role(ids.get(union.id))
+                    if role is not None:
+                        ret[role] = overwrite
+
+                elif isinstance(union, discord.Member):
+                    ret[union] = overwrite
+            except:
+                continue
+
+        return ret
+
     for channel in target.channels:
         try:
             await channel.delete()
@@ -48,7 +64,7 @@ async def copy_guild(origin, target, chatlog=20):
         try:
             created = await target.create_category(
                 name=category.name,
-                overwrites=category.overwrites,
+                overwrites=convert_overwrites(category.overwrites),
             )
             ids[category.id] = created.id
         except:
@@ -58,7 +74,7 @@ async def copy_guild(origin, target, chatlog=20):
         try:
             created = await target.create_text_channel(
                 name=channel.name,
-                overwrites=channel.overwrites,
+                overwrites=convert_overwrites(channel.overwrites),
                 category=None if channel.category is None else target.get_channel(
                     ids.get(channel.category.id))
             )
@@ -94,7 +110,7 @@ async def copy_guild(origin, target, chatlog=20):
         try:
             created = await target.create_voice_channel(
                 name=vchannel.name,
-                overwrites=vchannel.overwrites,
+                overwrites=convert_overwrites(vchannel.overwrites),
                 category=None if vchannel.category is None else target.get_channel(
                     ids.get(vchannel.category.id))
             )
