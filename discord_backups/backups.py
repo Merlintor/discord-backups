@@ -55,7 +55,7 @@ class BackupSaver():
                         for reaction in message.reactions
                     ],
 
-                } async for message in tchannel.history(limit=self.chatlog, oldest_first=False)],
+                } for message in reversed(await tchannel.history(limit=self.chatlog).flatten())],
 
                 "webhooks": [{
                     "channel": str(webhook.channel.id),
@@ -241,7 +241,7 @@ class BackupLoader:
 
             if self.chatlog != 0:
                 webh = await created.create_webhook(name="chatlog")
-                for message in reversed(tchannel["messages"])[-self.chatlog:]:
+                for message in tchannel["messages"][-self.chatlog:]:
                     attachments = []
                     for attachment in message["attachments"]:
                         emb = discord.Embed()

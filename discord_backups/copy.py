@@ -86,7 +86,7 @@ async def copy_guild(origin, target, chatlog=20):
             webh = await created.create_webhook(
                 name="sync"
             )
-            async for message in channel.history(limit=chatlog):
+            for message in reversed(await channel.history(limit=chatlog).flatten()):
                 if message.system_content.replace(" ", "") == "" and len(message.embeds) == 0:
                     continue
 
