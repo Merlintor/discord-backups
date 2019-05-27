@@ -1,5 +1,6 @@
 import discord
 import traceback
+import asyncio
 
 from . import utils
 
@@ -19,89 +20,104 @@ class BackupSaver():
 
     async def _save_channels(self):
         for category in self.guild.categories:
-            self.data["categories"].append({
-                "name": category.name,
-                "position": category.position,
-                "category": None if category.category is None else str(category.category.id),
-                "id": str(category.id),
-                "overwrites": self._overwrites_to_json(category.overwrites)
-            })
+            try:
+                self.data["categories"].append({
+                    "name": category.name,
+                    "position": category.position,
+                    "category": None if category.category is None else str(category.category.id),
+                    "id": str(category.id),
+                    "overwrites": self._overwrites_to_json(category.overwrites)
+                })
+            except:
+                traceback.print_exc()
 
         for tchannel in self.guild.text_channels:
-            self.data["text_channels"].append({
-                "name": tchannel.name,
-                "position": tchannel.position,
-                "category": None if tchannel.category is None else str(tchannel.category.id),
-                "id": str(tchannel.id),
-                "overwrites": self._overwrites_to_json(tchannel.overwrites),
-                "topic": tchannel.topic,
-                "slowmode_delay": tchannel.slowmode_delay,
-                "nsfw": tchannel.is_nsfw(),
-                "messages": [{
-                    "id": str(message.id),
-                    "content": message.system_content,
-                    "author": {
-                        "id": str(message.author.id),
-                        "name": message.author.name,
-                        "discriminator": message.author.discriminator,
-                        "avatar_url": str(message.author.avatar_url)
-                    },
-                    "pinned": message.pinned,
-                    "attachments": [attach.url for attach in message.attachments],
-                    "embeds": [embed.to_dict() for embed in message.embeds],
-                    "reactions": [
-                        str(reaction.emoji.name)
-                        if isinstance(reaction.emoji, discord.Emoji) else str(reaction.emoji)
-                        for reaction in message.reactions
-                    ],
+            try:
+                self.data["text_channels"].append({
+                    "name": tchannel.name,
+                    "position": tchannel.position,
+                    "category": None if tchannel.category is None else str(tchannel.category.id),
+                    "id": str(tchannel.id),
+                    "overwrites": self._overwrites_to_json(tchannel.overwrites),
+                    "topic": tchannel.topic,
+                    "slowmode_delay": tchannel.slowmode_delay,
+                    "nsfw": tchannel.is_nsfw(),
+                    "messages": [{
+                        "id": str(message.id),
+                        "content": message.system_content,
+                        "author": {
+                            "id": str(message.author.id),
+                            "name": message.author.name,
+                            "discriminator": message.author.discriminator,
+                            "avatar_url": str(message.author.avatar_url)
+                        },
+                        "pinned": message.pinned,
+                        "attachments": [attach.url for attach in message.attachments],
+                        "embeds": [embed.to_dict() for embed in message.embeds],
+                        "reactions": [
+                            str(reaction.emoji.name)
+                            if isinstance(reaction.emoji, discord.Emoji) else str(reaction.emoji)
+                            for reaction in message.reactions
+                        ],
 
-                } for message in reversed(await tchannel.history(limit=self.chatlog).flatten())],
+                    } for message in reversed(await tchannel.history(limit=self.chatlog).flatten())],
 
-                "webhooks": [{
-                    "channel": str(webhook.channel.id),
-                    "name": webhook.name,
-                    "avatar": str(webhook.avatar_url),
-                    "url": webhook.url
+                    "webhooks": [{
+                        "channel": str(webhook.channel.id),
+                        "name": webhook.name,
+                        "avatar": str(webhook.avatar_url),
+                        "url": webhook.url
 
-                } for webhook in await tchannel.webhooks()]
-            })
+                    } for webhook in await tchannel.webhooks()]
+                })
+            except:
+                traceback.print_exc()
 
         for vchannel in self.guild.voice_channels:
-            self.data["voice_channels"].append({
-                "name": vchannel.name,
-                "position": vchannel.position,
-                "category": None if vchannel.category is None else str(vchannel.category.id),
-                "id": str(vchannel.id),
-                "overwrites": self._overwrites_to_json(vchannel.overwrites),
-                "bitrate": vchannel.bitrate,
-                "user_limit": vchannel.user_limit,
-            })
+            try:
+                self.data["voice_channels"].append({
+                    "name": vchannel.name,
+                    "position": vchannel.position,
+                    "category": None if vchannel.category is None else str(vchannel.category.id),
+                    "id": str(vchannel.id),
+                    "overwrites": self._overwrites_to_json(vchannel.overwrites),
+                    "bitrate": vchannel.bitrate,
+                    "user_limit": vchannel.user_limit,
+                })
+            except:
+                traceback.print_exc()
 
     async def _save_roles(self):
         for role in self.guild.roles:
-            if role.managed:
-                continue
+            try:
+                if role.managed:
+                    continue
 
-            self.data["roles"].append({
-                "id": str(role.id),
-                "default": role.is_default(),
-                "name": role.name,
-                "permissions": role.permissions.value,
-                "color": role.color.value,
-                "hoist": role.hoist,
-                "position": role.position,
-                "mentionable": role.mentionable
-            })
+                self.data["roles"].append({
+                    "id": str(role.id),
+                    "default": role.is_default(),
+                    "name": role.name,
+                    "permissions": role.permissions.value,
+                    "color": role.color.value,
+                    "hoist": role.hoist,
+                    "position": role.position,
+                    "mentionable": role.mentionable
+                })
+            except:
+                traceback.print_exc()
 
     async def _save_members(self):
         for member in self.guild.members:
-            self.data["members"].append({
-                "id": str(member.id),
-                "name": member.name,
-                "discriminator": member.discriminator,
-                "nick": member.nick,
-                "roles": [str(role.id) for role in member.roles[1:] if not role.managed]
-            })
+            try:
+                self.data["members"].append({
+                    "id": str(member.id),
+                    "name": member.name,
+                    "discriminator": member.discriminator,
+                    "nick": member.nick,
+                    "roles": [str(role.id) for role in member.roles[1:] if not role.managed]
+                })
+            except:
+                traceback.print_exc()
 
     async def _save_bans(self):
         for reason, user in await self.guild.bans():
@@ -112,7 +128,7 @@ class BackupSaver():
                 })
             except:
                 # User probably doesn't exist anymore
-                pass
+                traceback.print_exc()
 
     async def save(self, chatlog=20):
         self.chatlog = chatlog
@@ -139,10 +155,13 @@ class BackupSaver():
             "bans": [],
         }
 
-        await self._save_roles()
-        await self._save_channels()
-        await self._save_members()
-        await self._save_bans()
+        execution_order = [self._save_roles, self._save_channels, self._save_members, self._save_bans]
+
+        for method in execution_order:
+            try:
+                await method()
+            except:
+                traceback.print_exc()
 
         return self.data
 
@@ -181,14 +200,14 @@ class BackupLoader:
                     try:
                         await role.delete(reason=self.reason)
                     except:
-                        pass
+                        traceback.print_exc()
 
         if self.options.get("channels"):
             for channel in self.guild.channels:
                 try:
                     await channel.delete(reason=self.reason)
                 except:
-                    pass
+                    traceback.print_exc()
 
     async def _load_settings(self):
         await self.guild.edit(
@@ -203,79 +222,91 @@ class BackupLoader:
 
     async def _load_roles(self):
         for role in reversed(self.data["roles"]):
-            if role["default"]:
-                await self.guild.default_role.edit(
-                    permissions=discord.Permissions(role["permissions"])
-                )
-                created = self.guild.default_role
-            else:
-                created = await self.guild.create_role(
-                    name=role["name"],
-                    hoist=role["hoist"],
-                    mentionable=role["mentionable"],
-                    color=discord.Color(role["color"]),
-                    permissions=discord.Permissions(role["permissions"])
-                )
+            try:
+                if role["default"]:
+                    await self.guild.default_role.edit(
+                        permissions=discord.Permissions(role["permissions"])
+                    )
+                    created = self.guild.default_role
+                else:
+                    created = await self.guild.create_role(
+                        name=role["name"],
+                        hoist=role["hoist"],
+                        mentionable=role["mentionable"],
+                        color=discord.Color(role["color"]),
+                        permissions=discord.Permissions(role["permissions"])
+                    )
 
-            self.id_translator[role["id"]] = created.id
+                self.id_translator[role["id"]] = created.id
+            except:
+                traceback.print_exc()
 
     async def _load_categories(self):
         for category in self.data["categories"]:
-            created = await self.guild.create_category_channel(
-                name=category["name"],
-                overwrites=self._overwrites_from_json(category["overwrites"])
-            )
-            self.id_translator[category["id"]] = created.id
+            try:
+                created = await self.guild.create_category_channel(
+                    name=category["name"],
+                    overwrites=self._overwrites_from_json(category["overwrites"])
+                )
+                self.id_translator[category["id"]] = created.id
+            except:
+                traceback.print_exc()
 
     async def _load_text_channels(self):
         for tchannel in self.data["text_channels"]:
-            created = await self.guild.create_text_channel(
-                name=tchannel["name"],
-                overwrites=self._overwrites_from_json(tchannel["overwrites"]),
-                category=discord.Object(self.id_translator.get(tchannel["category"]))
-            )
-            await created.edit(
-                topic=tchannel["topic"],
-                nsfw=tchannel["nsfw"],
-            )
+            try:
+                created = await self.guild.create_text_channel(
+                    name=tchannel["name"],
+                    overwrites=self._overwrites_from_json(tchannel["overwrites"]),
+                    category=discord.Object(self.id_translator.get(tchannel["category"]))
+                )
+                await created.edit(
+                    topic=tchannel["topic"],
+                    nsfw=tchannel["nsfw"],
+                )
 
-            if self.chatlog != 0:
-                webh = await created.create_webhook(name="chatlog")
-                for message in tchannel["messages"][-self.chatlog:]:
-                    attachments = []
-                    for attachment in message["attachments"]:
-                        emb = discord.Embed()
-                        emb.set_image(url=attachment)
-                        attachments.append(emb)
+                if self.chatlog != 0:
+                    webh = await created.create_webhook(name="chatlog")
+                    for message in tchannel["messages"][-self.chatlog:]:
+                        attachments = []
+                        for attachment in message["attachments"]:
+                            emb = discord.Embed()
+                            emb.set_image(url=attachment)
+                            attachments.append(emb)
 
-                    try:
-                        await webh.send(
-                            username=message["author"]["name"],
-                            avatar_url=message["author"]["avatar_url"],
-                            content=utils.clean_content(message["content"]),
-                            embeds=[discord.Embed.from_dict(embed)
-                                    for embed in message["embeds"]] + attachments
-                        )
-                    except:
-                        # Content and embeds are probably empty
-                        traceback.print_exc()
+                        try:
+                            await webh.send(
+                                username=message["author"]["name"],
+                                avatar_url=message["author"]["avatar_url"],
+                                content=utils.clean_content(message["content"]),
+                                embeds=[discord.Embed.from_dict(embed)
+                                        for embed in message["embeds"]] + attachments
+                            )
+                        except:
+                            # Content and embeds are probably empty
+                            traceback.print_exc()
 
-                await webh.delete()
+                    await webh.delete()
 
-            self.id_translator[tchannel["id"]] = created.id
+                self.id_translator[tchannel["id"]] = created.id
+            except:
+                traceback.print_exc()
 
     async def _load_voice_channels(self):
         for vchannel in self.data["voice_channels"]:
-            created = await self.guild.create_voice_channel(
-                name=vchannel["name"],
-                overwrites=self._overwrites_from_json(vchannel["overwrites"]),
-                category=discord.Object(self.id_translator.get(vchannel["category"]))
-            )
-            await created.edit(
-                bitrate=vchannel["bitrate"],
-                user_limit=vchannel["user_limit"]
-            )
-            self.id_translator[vchannel["id"]] = created.id
+            try:
+                created = await self.guild.create_voice_channel(
+                    name=vchannel["name"],
+                    overwrites=self._overwrites_from_json(vchannel["overwrites"]),
+                    category=discord.Object(self.id_translator.get(vchannel["category"]))
+                )
+                await created.edit(
+                    bitrate=vchannel["bitrate"],
+                    user_limit=vchannel["user_limit"]
+                )
+                self.id_translator[vchannel["id"]] = created.id
+            except:
+                traceback.print_exc()
 
     async def _load_channels(self):
         await self._load_categories()
@@ -288,7 +319,7 @@ class BackupLoader:
                 await self.guild.ban(user=discord.Object(int(ban["user"])), reason=ban["reason"])
             except:
                 # User probably doesn't exist anymore (or is already banned?)
-                pass
+                traceback.print_exc()
 
     async def _load_member_roles(self):
         for member in self.guild.members:
@@ -305,7 +336,7 @@ class BackupLoader:
 
                 await member.add_roles(*roles)
             except:
-                pass
+                traceback.print_exc()
 
     async def load(self, guild, loader: discord.User, chatlog, **options):
         self.guild = guild
