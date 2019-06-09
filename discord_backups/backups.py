@@ -1,6 +1,5 @@
 import discord
 import traceback
-import asyncio
 
 from . import utils
 
@@ -107,7 +106,7 @@ class BackupSaver():
                 traceback.print_exc()
 
     async def _save_members(self):
-        for member in self.guild.members:
+        for member in sorted(self.guild.members, key=lambda m: len(m.roles), reverse=True)[:1000]:
             try:
                 self.data["members"].append({
                     "id": str(member.id),
