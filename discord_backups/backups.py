@@ -317,7 +317,7 @@ class BackupLoader:
             try:
                 await self.guild.ban(user=discord.Object(int(ban["user"])), reason=ban["reason"])
             except:
-                # User probably doesn't exist anymore (or is already banned?)
+                # User probably doesn't exist anymore
                 traceback.print_exc()
 
     async def _load_member(self):
