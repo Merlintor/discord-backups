@@ -320,20 +320,29 @@ class BackupLoader:
                 # User probably doesn't exist anymore (or is already banned?)
                 traceback.print_exc()
 
-    async def _load_member_roles(self):
+    async def _load_member(self):
         for member in self.guild.members:
             try:
                 fits = list(filter(lambda m: m["id"] == str(member.id), self.data["members"]))
                 if len(fits) == 0:
                     continue
 
+                current_roles = [r.id for r in member.roles]
                 roles = [
                     discord.Object(self.id_translator.get(role))
                     for role in fits[0]["roles"]
-                    if role in self.id_translator
+                    if role in self.id_translator and role not in current_roles
                 ]
 
-                await member.add_roles(*roles)
+                try:
+                    await member.edit(
+                        nick=fits[0].get("nick"),
+                        roles=member.roles + roles,
+                        reason=self.reason
+                    )
+                except discord.Forbidden:
+                    await member.add_roles(*roles)
+
             except:
                 traceback.print_exc()
 
@@ -373,7 +382,7 @@ class BackupLoader:
 
         if self.options.get("members"):
             try:
-                await self._load_member_roles()
+                await self._load_member()
             except:
                 traceback.print_exc()
 
